@@ -24,6 +24,12 @@ iframe, or as a plain static page.
   * a comparison with your previous launch
   * a "best amount of water" sweep
   * a data table with CSV export
+  * **key moments** marked on every chart as numbered dashed lines: leaving the launch
+    tube, becoming stable, fog forming, water gone, maximum speed, apogee and landing.
+    Click a numbered circle for a card with the numbers and why the moment matters. A
+    numbered list under the timeline highlights a moment on every chart.
+  * **zoom**: drag across a chart to zoom into a time range, Ctrl + scroll to zoom
+    around the pointer, and double-click or "Reset zoom" to zoom out.
 * **Pressure safety**: choose a still-water bottle, a soda bottle or a pressure-tested
   rocket. A safety bar under the pressure slider, colour zones on the 3D gauge and
   graded warnings tell you when you exceed the typical safe or burst pressure (for
@@ -48,6 +54,10 @@ iframe, or as a plain static page.
   friction, nose shape, shoulder and base, and fin edges. The Rocket tab shows the
   breakdown. Custom uses your own value, e.g. a measured one. The nose shape (pointed /
   rounded / blunt) is now its own setting.
+* **Drag lab** window: how build extras (surface finish, fin edges, launch lug,
+  camera, body-extension joint) change Cd, how much Cd changes the apogee, Cd against
+  speed, and three experiments to measure the real Cd: a coast video, several
+  launches, and a drop test. Each experiment has a calculator and practice data.
 * **Stability (CM / CP)**: a Stability tab computes the centre of mass and centre of
   pressure (Barrowman method), and from them the static margin in calibres:
   * The margin is given with the rocket empty (the main criterion) and at launch
