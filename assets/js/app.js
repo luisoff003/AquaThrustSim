@@ -1484,6 +1484,16 @@ class App {
       <div class="aqt-stabnums">
         <div><span>${t('stab.empty')}</span><b style="color:${zoneColor(mE)}">${num(mE, 2)} cal</b></div>
         <div><span>${t('stab.launch')}</span><b style="color:${zoneColor(mL)}">${num(mL, 2)} cal</b></div>
+        ${
+          r.freeFlight && r.freeFlight.tube
+            ? `<div><span>${t('stab.tubeExit')}</span><b style="color:${zoneColor(r.freeFlight.margin)}">${num(r.freeFlight.margin, 2)} cal</b><small>${fmtU(this.units, 'speed', r.freeFlight.v)}</small></div>`
+            : ''
+        }
+        ${
+          r.freeFlight
+            ? `<div><span>${t('stab.negTime')}</span><b style="color:${r.freeFlight.negTime > 0 ? zoneColor(-1) : zoneColor(mE)}">${num(r.freeFlight.negTime * 1000, 0)} ms</b></div>`
+            : ''
+        }
       </div>`;
     const out = [];
     if (r.state === 'unstable' || r.state === 'marginal') {
@@ -1518,6 +1528,11 @@ class App {
       out.push(`<p>${t('tip.stable', { d: num((r.cp.x - r.empty.cm.x) * 100, 1) })}</p>`);
     }
     out.push(`<p class="aqt-tipnote">${t('stab.launchNote', { m: num(mL, 2), ms: burnMs })}</p>`);
+    const ff = r.freeFlight;
+    if (ff && ff.negTime > 0) {
+      const key = ff.tube ? 'stab.negAfterTube' : 'stab.negNoTube';
+      out.push(`<p class="aqt-tipnote">${t(key, { ms: num(ff.negTime * 1000, 0), v: fmtU(this.units, 'speed', ff.v), m: num(ff.margin, 2) })}</p>`);
+    }
     out.push(`<p class="aqt-tipnote">${t('tip.check')}</p>`);
     out.push(`<p class="aqt-tipnote">${t('tip.noDrag')}</p>`);
     tips.innerHTML = out.join('');
