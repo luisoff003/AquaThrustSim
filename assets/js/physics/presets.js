@@ -110,6 +110,9 @@ export const BASE = {
   bodyExt: 0, // m, unpressurised body extension between bottle and nose (longer, not bigger)
   noseShape: 'round', // ogive | round | blunt
   cdMode: 'auto', // auto: CDrag estimated from the geometry (physics/drag.js) | custom
+  surface: 'smooth', // smooth | painted | tape | rough (skin-friction factor, Auto Cd)
+  finEdge: 'square', // square | rounded | airfoil (fin-edge drag, Auto Cd)
+  addons: '', // '' | 'lug' | 'cam' | 'lug+cam' (things stuck on the side, Auto Cd)
 };
 
 export function withGas(P, gasKey) {

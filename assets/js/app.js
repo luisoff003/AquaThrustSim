@@ -10,6 +10,8 @@ import { t, setLang, getLang, detectLang, rememberLang, LANGS } from './i18n.js?
 import { learnTemplate, fillLearn, safetyBarHTML } from './ui/learn.js?v=1.7.1';
 import { stabilityReport, centerOfMass } from './physics/stability.js?v=1.7.1';
 import { estimateCd } from './physics/drag.js?v=1.7.1';
+import { DragLab, dragLabTemplate, dragLabText } from './ui/draglab.js?v=1.7.1';
+import { keyMoments, momentCardHTML, momentListHTML } from './ui/moments.js?v=1.7.1';
 import { stab as ST, zoneColor, finTemplate } from './ui/diagrams.js?v=1.7.1';
 import { World } from './scene/world.js?v=1.7.1';
 import { RocketModel } from './scene/rocket.js?v=1.7.1';
@@ -87,6 +89,7 @@ function bodyTemplate(units) {
           <label class="aqt-selectrow"><span>${t('cdMode')}</span><select data-id="cdMode"><option value="auto">${t('cd.auto')}</option><option value="custom">${t('cd.custom')}</option></select></label>
           <div class="aqt-cdcard" data-id="cdCard"></div>
           <div data-fields="drag"></div>
+          <button type="button" class="aqt-btn aqt-btn-sm aqt-dlopen" data-id="dragOpen">${dragLabText('open')}</button>
           <details class="aqt-adv">
             <summary>${t('adv.shape')}</summary>
             <div class="aqt-advintro">${t('adv.intro')}</div>
@@ -200,6 +203,8 @@ function bodyTemplate(units) {
       <button type="button" class="aqt-btn aqt-learnbtn" data-id="stabLearn">${ICON_BOOK}<span>${t('stab.learn')}</span></button>
     </div>
   </section>
+
+  ${dragLabTemplate()}
 
   <dialog class="aqt-dialog" data-id="dialog">
     <div class="aqt-dialog-head"><h3>${t('data.title')}</h3><button type="button" class="aqt-icon" data-id="closeDialog" aria-label="${t('close')}">✕</button></div>
@@ -566,6 +571,8 @@ class App {
     });
     this.$('stabClose').addEventListener('click', () => this.openStabWin(false));
     this.makeDraggable(this.$('stabWin'), this.$('stabHead'));
+    this.dragLab ??= new DragLab(this);
+    this.dragLab.bind();
     this.setupFinTemplate();
     this.$('stabLearn').addEventListener('click', () => {
       this.learn.tab = 'stability';
@@ -588,6 +595,17 @@ class App {
       else st.requestFullscreen?.();
     });
     this.$('compare').addEventListener('change', () => this.showResults());
+    // clicking a key moment's name shows its details and highlights it on every chart (click again to hide)
+    const pickMoment = (e) => {
+      const li = e.target.closest('.aqt-momlist li[data-mn]');
+      if (!li) return;
+      e.preventDefault();
+      this.selectMoment(li.classList.contains('aqt-on') ? null : Number(li.dataset.mn));
+    };
+    this.$('timeline').addEventListener('click', pickMoment);
+    this.$('timeline').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') pickMoment(e);
+    });
     this.$('usebest').addEventListener('click', () => {
       if (!this.best) return;
       this.P.volWat = Math.round(this.best.water * 1e5) / 1e5;
@@ -853,6 +871,7 @@ class App {
     this.dirty = false;
     if (this.learn.open || this.learn.mode === 'popup') fillLearn(this.learnEl, this.P, r);
     this.updateStability(r);
+    this.dragLab?.update(r);
     el.querySelector('b').textContent = r.noLiftoff ? t('hud.noLift') : fmtU(this.units, 'alt', r.summary.apogeeAltitude);
     el.querySelector('small').textContent = r.noLiftoff
       ? t('hud.tooHeavy')
@@ -1221,11 +1240,26 @@ class App {
         <div class="aqt-tl">${seg('tube', tTube, boost, t('tl.tube'))}${seg('water', tWater - tTube, boost, t('tl.water'))}${seg('gas', tGas - tWater, boost, t('tl.air'))}</div></div>
       <div class="aqt-tl-row"><h5>${t('tl.whole')} <small>(${num(S.impactTime, 1)} s)</small></h5>
         <div class="aqt-tl">${segF('power', boost, S.impactTime, t('tl.thrust'))}${segF('up', S.apogeeTime - boost, S.impactTime, t('tl.up'))}${segF('down', S.impactTime - S.apogeeTime, S.impactTime, t('tl.down'))}</div></div>
-      ${ev.condensation && res.params.humidity > 0.05 ? `<p class="aqt-tl-note">${t('tl.fog', { ms: num(ev.condensation.t * 1000, 0) })}</p>` : ''}`;
+      ${ev.condensation && res.params.humidity > 0.05 ? `<p class="aqt-tl-note">${t('tl.fog', { ms: num(ev.condensation.t * 1000, 0) })}</p>` : ''}
+      ${momentListHTML(keyMoments(res, U))}`;
 
     this.renderCharts();
     clearTimeout(this.sweepTimer);
     this.sweepTimer = setTimeout(() => this.renderSweep(), 60);
+  }
+
+  /**
+   * Highlight key moment n on every chart and in the list (null clears).
+   * `from` is the chart whose card is open: the others only highlight the line.
+   */
+  selectMoment(n, from = null) {
+    for (const c of Object.values(this.charts)) if (c.chart !== from) c.chart.setSelected(n);
+    this.root.querySelectorAll('.aqt-momlist li[data-mn]').forEach((li) => {
+      const on = Number(li.dataset.mn) === n;
+      li.classList.toggle('aqt-on', on);
+      li.setAttribute('aria-expanded', String(on));
+    });
+    this.root.querySelectorAll('.aqt-momdetail[data-md]').forEach((d) => (d.hidden = Number(d.dataset.md) !== n));
   }
 
   bandsFor(res) {
@@ -1255,7 +1289,10 @@ class App {
     ];
     if (!this.chartsBuilt) {
       host.innerHTML = '';
-      for (const d of defs) this.charts[d.key] = { chart: new LineChart(host, { title: d.title, subtitle: d.sub, unit: d.unit, digits: 2, zeroBased: d.zero !== false }) };
+      for (const d of defs) {
+        const chart = new LineChart(host, { title: d.title, subtitle: d.sub, unit: d.unit, digits: 2, zeroBased: d.zero !== false, onEvent: (e) => this.selectMoment(e ? e.n : null, chart) });
+        this.charts[d.key] = { chart };
+      }
       this.chartsBuilt = true;
     }
     const mk = (r, d, name, color, dash) => {
@@ -1264,6 +1301,7 @@ class App {
       return { x: s.t.slice(0, count), y: s[d.key].slice(0, count).map((v) => v * d.f), name, color, dash };
     };
     const S = res.summary;
+    const events = keyMoments(res, U).map((m) => ({ x: m.t, n: m.n, label: m.title, color: m.color, html: momentCardHTML(m) }));
     for (const d of defs) {
       const c = this.charts[d.key].chart;
       c.opts.unit = d.unit;
@@ -1285,7 +1323,7 @@ class App {
         if (prev) xMax = Math.max(xMax, prev.series.t[prev.boostCount - 1] * 1.04);
       }
       c.opts.xDigits = d.boost ? 3 : 2;
-      c.setData({ series, bands: d.boost ? this.bandsFor(res) : [], markers, xMin: 0, xMax });
+      c.setData({ series, bands: d.boost ? this.bandsFor(res) : [], markers, events, xMin: 0, xMax });
     }
   }
 
@@ -1430,8 +1468,10 @@ class App {
       card.innerHTML = `<p class="aqt-typenote">${t('cd.customNote', { cd: num(est.total, 2) })}</p>`;
       return;
     }
-    const keys = ['friction', 'fins', 'nose', 'tail', 'edges', 'extra'];
-    const colors = ['#338ced', '#00a888', '#e63946', '#d29922', '#9887ef', '#6b7a8f'];
+    const allKeys = ['friction', 'fins', 'nose', 'tail', 'edges', 'joint', 'addons', 'extra'];
+    const allColors = ['#338ced', '#00a888', '#e63946', '#d29922', '#9887ef', '#ff8c42', '#e86fb3', '#6b7a8f'];
+    const keys = allKeys.filter((k) => est.parts[k] > 1e-5);
+    const colors = keys.map((k) => allColors[allKeys.indexOf(k)]);
     const bar = keys.map((k, i) => `<i style="flex-grow:${est.parts[k]};background:${colors[i]}" title="${t('cd.' + k)}: ${num(est.parts[k], 3)}"></i>`).join('');
     const rows = keys.map((k, i) => `<li><i style="background:${colors[i]}"></i>${t('cd.' + k)}<b>${num(est.parts[k], 3)}</b></li>`).join('');
     card.innerHTML = `<div class="aqt-cdhead"><span>${t('cd.title')}</span><b>Cd ≈ ${num(est.total, 2)}</b></div>
@@ -1484,6 +1524,16 @@ class App {
       <div class="aqt-stabnums">
         <div><span>${t('stab.empty')}</span><b style="color:${zoneColor(mE)}">${num(mE, 2)} cal</b></div>
         <div><span>${t('stab.launch')}</span><b style="color:${zoneColor(mL)}">${num(mL, 2)} cal</b></div>
+        ${
+          r.freeFlight && r.freeFlight.tube
+            ? `<div><span>${t('stab.tubeExit')}</span><b style="color:${zoneColor(r.freeFlight.margin)}">${num(r.freeFlight.margin, 2)} cal</b><small>${fmtU(this.units, 'speed', r.freeFlight.v)}</small></div>`
+            : ''
+        }
+        ${
+          r.freeFlight
+            ? `<div><span>${t('stab.negTime')}</span><b style="color:${r.freeFlight.negTime > 0 ? zoneColor(-1) : zoneColor(mE)}">${num(r.freeFlight.negTime * 1000, 0)} ms</b></div>`
+            : ''
+        }
       </div>`;
     const out = [];
     if (r.state === 'unstable' || r.state === 'marginal') {
@@ -1518,6 +1568,11 @@ class App {
       out.push(`<p>${t('tip.stable', { d: num((r.cp.x - r.empty.cm.x) * 100, 1) })}</p>`);
     }
     out.push(`<p class="aqt-tipnote">${t('stab.launchNote', { m: num(mL, 2), ms: burnMs })}</p>`);
+    const ff = r.freeFlight;
+    if (ff && ff.negTime > 0) {
+      const key = ff.tube ? 'stab.negAfterTube' : 'stab.negNoTube';
+      out.push(`<p class="aqt-tipnote">${t(key, { ms: num(ff.negTime * 1000, 0), v: fmtU(this.units, 'speed', ff.v), m: num(ff.margin, 2) })}</p>`);
+    }
     out.push(`<p class="aqt-tipnote">${t('tip.check')}</p>`);
     out.push(`<p class="aqt-tipnote">${t('tip.noDrag')}</p>`);
     tips.innerHTML = out.join('');

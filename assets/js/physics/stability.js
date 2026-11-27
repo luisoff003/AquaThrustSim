@@ -173,6 +173,33 @@ export function stabilityReport(P, res) {
     for (let i = 0; i < n; i += step) trace.push({ t: s.t[i], margin: at(s.w[i]).margin });
     trace.push({ t: s.t[n - 1], margin: empty.margin });
   }
+  // Free flight after leaving the launcher: margin and speed at tube exit, and how long
+  // the rocket flies with a negative margin once nothing guides it any more.
+  let freeFlight = null;
+  if (res && res.series && res.boostCount > 1) {
+    const s = res.series;
+    const n = res.boostCount;
+    const te = res.events && res.events.tubeExit;
+    const t0 = te ? te.t : 0;
+    let i0 = 0;
+    while (i0 < n - 1 && s.t[i0] < t0) i0++;
+    let negEnd = t0;
+    let negative = false;
+    for (let i = i0; i < n; i++) {
+      if (at(s.w[i]).margin < 0) {
+        negative = true;
+        negEnd = s.t[i];
+      }
+    }
+    freeFlight = {
+      tube: !!te,
+      t: t0,
+      v: te ? te.v : 0,
+      h: te ? te.h : 0,
+      margin: at(s.w[i0]).margin,
+      negTime: negative ? Math.max(0, negEnd - t0) : 0,
+    };
+  }
   // Stability is judged with the rocket EMPTY (the coast is ~99 % of the flight; during the
   // ~0.1 s of thrust the launcher guides the rocket and the water sits at the tail).
   const target = TARGET;
@@ -230,6 +257,7 @@ export function stabilityReport(P, res) {
     empty,
     fill,
     trace,
+    freeFlight,
     target,
     state: marginState(empty.margin),
     launchState: marginState(launch.margin),

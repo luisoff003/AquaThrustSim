@@ -218,6 +218,67 @@ With terminal velocity `v_t = √(m g / k)`, `τ = v_t/g` and `H = v_t²/g`:
 
 With no drag (`k = 0`), ordinary ballistic formulas are used.
 
+## Drag coefficient: estimate, extras and measurement
+
+### Automatic estimate (`physics/drag.js`)
+
+In Auto mode `C_d` is a component build-up referred to the bottle frontal area
+`A = πD²/4`, evaluated at `v_ref = 35 m/s`:
+
+```
+C_d = 1.1 · [ C_f·(1 + 60/(L/D)³ + 0.0025·L/D)·S_wet/A      body + nose friction
+            + 2·C_f·(1 + 2t/c)·N·S_fin/A                  fin friction
+            + C_d,nose + C_d,tail                         pressure drag
+            + k_e·N·t·s/A                                 fin edges
+            + C_d,joint + Σ C_d,i·A_i/A ]                 extras
+C_f = f_surface · 0.074 / Re^0.2,   Re = v·L/ν  (ν from Sutherland's law and ρ_air)
+```
+
+| Extra | Parameter | Effect |
+|---|---|---|
+| Surface finish | `surface`: smooth / painted / tape / rough | `f_surface` = 1.00 / 1.12 / 1.25 / 1.5 on `C_f` |
+| Fin edges | `finEdge`: square / rounded / airfoil | `k_e` = 1.0 / 0.5 / 0.15 |
+| Body extension | `bodyExt` | longer `L` (more `S_wet`, higher Re) plus `C_d,joint` = 0.015 |
+| Add-ons | `addons`: `lug`, `cam` | launch lug 1.0 × 35 mm², side camera 0.6 × 6 cm² |
+
+Only the friction terms depend on speed (`C_f ∝ Re^−0.2`, about −13 % per doubling of
+speed). `cdVsSpeed()` gives `C_d(v)` for the Drag lab chart; the flight itself uses the
+single value at `v_ref`.
+
+**Sensitivity.** The coast gain is `(H/2)·ln(1 + v_b²/v_t²)` with `v_t² ∝ 1/C_d`, so for
+`v_b ≫ v_t` a relative error ε in `C_d` gives roughly a relative error ε in the coast
+height. The Drag lab shows the apogee at `0.8·C_d`, `C_d` and `1.2·C_d`.
+
+### Measuring `C_d` (`physics/cdfit.js`, Drag lab window)
+
+1. **Coast video**, `fitCoastVideo`. Points `(t, h)` from burnout to apogee are fitted
+   with the exact solution of `m·a = −m·g − k·v²`:
+   `h(t) = h₀ + (v_t²/g)·ln[cos(φ₀ − g(t−t₀)/v_t) / cos φ₀]`, `φ₀ = atan(v₀/v_t)`.
+   The unknowns are `C_d`, `v₀` and `h₀`. `h₀` is solved in closed form (mean offset),
+   and `v₀` and `C_d` by nested grid + golden-section searches (`C_d` on a log scale,
+   0.02–4). The error is reported as RMS, next to the RMS of the best vacuum parabola.
+   The range (about ±2σ) is where the residual sum grows by a factor `1 + 4/(n−3)`.
+   This isolates drag from the thrust model, so it is the recommended experiment.
+2. **Several launches**, `fitLaunches`. For each launch the apogee (or flight time) is
+   simulated on a 15-point log grid of `C_d` (0.04–3) and inverted by log–log
+   interpolation, which works because the apogee decreases monotonically with `C_d`. A
+   single best `C_d` minimises `Σ((h_model − h_meas)/h_meas)²`. A launch flagged
+   `high` (higher than any `C_d` allows) or `low` is excluded. The result is an
+   *effective* `C_d` that also absorbs thrust-model errors.
+3. **Drop test**, `dropTest`. From rest, `h = (v_t²/g)·ln cosh(g·t/v_t)` is solved for
+   `v_t` by bisection, then `C_d = 2mg/(ρ·A·v_t²)`. The uncertainty uses
+   `max(s/√n, resolution/√n)`, with a resolution of 0.1 s for a stopwatch and 0.03 s
+   for video. `dropPlan()` gives the drop height at which drag lengthens the fall by
+   10 %.
+
+Each calculator has **practice data**: the simulator generates measurements from a
+hidden `C_d` (the estimate × 1.05–1.40, the same for the three experiments) with noise (σ = 4 % on apogee, 0.25 m on video
+heights, 0.02–0.07 s on drop times), and shows the hidden value after the fit.
+
+**Calibrating the model.** If the launch `C_d` differs from the video `C_d` by more
+than about 15 %, the difference is in the thrust model. Fix `C_d` to the video value,
+then adjust `η_w` until the launches match.
+
 ## Numerical method
 
 The equations are integrated with classical 4th-order Runge–Kutta. The step is

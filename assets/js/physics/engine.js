@@ -300,7 +300,7 @@ function runPhase(sys, y, phase, tOffset, rec, ctx) {
       const ft = 1 + ctx.cond.deltaT / sys.temp;
       sys.scalePT(ft * ctx.cond.Pratio, ft);
       sys.derivs(y, k1, tl);
-      ctx.condensed = { t: tOffset + tl, phase, h: y[0] };
+      ctx.condensed = { t: tOffset + tl, phase, h: y[0], Tc: ctx.cond.Tcond };
     }
     record();
     if (++steps > MAX_STEPS) {
