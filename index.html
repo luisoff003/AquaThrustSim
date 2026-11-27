@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AquaThrust — Water Rocket Simulator</title>
+  <meta name="description" content="Design a water rocket, set the launcher and weather, then watch it fly in 3D with physics-based results and charts.">
+  <style>
+    html, body { margin: 0; background: #070c16; }
+    body { padding: 16px; }
+    .wrap { max-width: 1400px; margin: 0 auto; }
+    body.embed { padding: 0; }
+    body.embed .wrap { max-width: none; }
+  </style>
+  <script>
+    // ?embed=1 removes page padding (for iframe embeds)
+    if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
+    document.addEventListener('DOMContentLoaded', () => {
+      if (document.documentElement.classList.contains('embed')) document.body.classList.add('embed');
+    });
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div data-aquathrust data-preset="classic"></div>
+    <noscript>This simulator needs JavaScript and WebGL.</noscript>
+  </div>
+  <script type="module" src="assets/js/main.js?v=1.7.1"></script>
+</body>
+</html>
